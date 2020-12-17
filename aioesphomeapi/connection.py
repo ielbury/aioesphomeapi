@@ -13,8 +13,9 @@ from aioesphomeapi.core import APIConnectionError, MESSAGE_TYPE_TO_PROTO
 from aioesphomeapi.model import APIVersion
 from aioesphomeapi.util import _bytes_to_varuint, _varuint_to_bytes, resolve_ip_address
 
-_LOGGER = logging.getLogger(__name__)
+from datetime import datetime
 
+_LOGGER = logging.getLogger(__name__)
 
 @attr.s
 class ConnectionParams:
@@ -40,6 +41,7 @@ class APIConnection:
         self._socket_connected = False
         self._state_lock = asyncio.Lock()
         self._api_version = None  # type: Optional[APIVersion]
+        self._last_traffic = datetime.now()
 
         self._message_handlers = []  # type: List[Callable[[message], None]]
 
@@ -48,17 +50,18 @@ class APIConnection:
     def _start_ping(self) -> None:
         async def func() -> None:
             while self._connected:
-                await asyncio.sleep(self._params.keepalive)
+                await asyncio.sleep(5)
 
                 if not self._connected:
                     return
 
-                try:
-                    await self.ping()
-                except APIConnectionError:
-                    _LOGGER.info("%s: Ping Failed!", self._params.address)
-                    await self._on_error()
-                    return
+                if (datetime.now() - self._last_traffic).seconds > self._params.keepalive:
+                    try:
+                        await self.ping()
+                    except APIConnectionError:
+                        _LOGGER.info("%s: Ping Failed!", self._params.address)
+                        await self._on_error()
+                        return
 
         self._params.eventloop.create_task(func())
 
@@ -151,6 +154,7 @@ class APIConnection:
             await self._on_error()
             raise APIConnectionError("Incompatible API version.")
         self._connected = True
+        self._last = datetime.now()
 
         self._start_ping()
 
@@ -167,6 +171,7 @@ class APIConnection:
             raise APIConnectionError("Invalid password!")
 
         self._authenticated = True
+        self._last_traffic = datetime.now()
 
     def _check_connected(self) -> None:
         if not self._connected:
@@ -209,6 +214,7 @@ class APIConnection:
         # pylint: disable=undefined-loop-variable
         req += _varuint_to_bytes(message_type)
         req += encoded
+        self._last_traffic = datetime.now()
         await self._write(req)
 
     async def send_message_callback_response(self, send_msg: message.Message,
@@ -305,6 +311,7 @@ class APIConnection:
         for msg_handler in self._message_handlers[:]:
             msg_handler(msg)
         await self._handle_internal_messages(msg)
+        self._last_traffic = datetime.now()
 
     async def run_forever(self) -> None:
         while True:

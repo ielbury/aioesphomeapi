@@ -50,7 +50,7 @@ class APIConnection:
     def _start_ping(self) -> None:
         async def func() -> None:
             while self._connected:
-                await asyncio.sleep(1)
+                await asyncio.sleep(5)
 
                 if not self._connected:
                     return

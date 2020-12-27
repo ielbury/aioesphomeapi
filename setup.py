@@ -10,11 +10,7 @@ with open(os.path.join(here, 'README.rst'), encoding='utf-8') as readme_file:
     long_description = readme_file.read()
 
 
-<<<<<<< HEAD
 VERSION = '2.6.105'
-=======
-VERSION = '2.6.103'
->>>>>>> 570fb6b82d0f185e42552371084fb2df62f49f53
 PROJECT_NAME = 'aioesphomeapi'
 PROJECT_PACKAGE_NAME = 'aioesphomeapi'
 PROJECT_LICENSE = 'MIT'
